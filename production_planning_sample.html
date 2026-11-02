@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>방사 공장 생산계획 자동화 샘플 시각화</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',AppleSDGothicNeo,'Malgun Gothic',sans-serif; background:#f0f2f5; color:#1a1a2e; line-height:1.5; }
+  header { background:linear-gradient(135deg,#0f172a,#1e3a5f); color:#fff; padding:36px 24px 28px; text-align:center; }
+  header h1 { font-size:26px; margin-bottom:6px; }
+  header p { font-size:14px; opacity:.8; }
+  .container { max-width:1200px; margin:0 auto; padding:24px 16px; }
+  .section { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06); margin-bottom:24px; padding:24px; }
+  .section h2 { font-size:18px; margin-bottom:16px; color:#1e3a5f; border-left:4px solid #3b82f6; padding-left:12px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:800px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+  .card { border:1px solid #e2e8f0; border-radius:10px; padding:16px; background:#fafbfc; }
+  .card h3 { font-size:15px; margin-bottom:8px; color:#334155; }
+  .card .val { font-size:22px; font-weight:700; color:#1e40af; }
+  .card .sub { font-size:12px; color:#64748b; margin-top:4px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { padding:8px 10px; text-align:left; border-bottom:1px solid #e5e7eb; }
+  th { background:#f1f5f9; color:#475569; font-weight:600; font-size:12px; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+  .tag-run { background:#dbeafe; color:#1d4ed8; }
+  .tag-change { background:#fef3c7; color:#b45309; }
+  .tag-down { background:#fee2e2; color:#b91c1c; }
+  .tag-ok { background:#dcfce7; color:#15803d; }
+  .gantt { overflow-x:auto; }
+  .gantt-row { display:flex; align-items:center; margin-bottom:6px; min-width:900px; }
+  .gantt-label { width:130px; font-size:12px; font-weight:600; color:#334155; flex-shrink:0; }
+  .gantt-track { flex:1; display:flex; height:28px; background:#f1f5f9; border-radius:4px; position:relative; }
+  .gantt-bar { height:100%; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; font-weight:600; position:absolute; top:0; }
+  .bar-run { background:linear-gradient(90deg,#3b82f6,#2563eb); }
+  .bar-change { background:linear-gradient(90deg,#f59e0b,#d97706); }
+  .bar-down { background:linear-gradient(90deg,#ef4444,#dc2626); }
+  .bar-idle { background:#cbd5e1; }
+  .flow { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+  .flow-step { background:#eff6ff; border:2px solid #3b82f6; border-radius:10px; padding:12px 16px; font-size:13px; font-weight:600; color:#1e40af; text-align:center; min-width:110px; }
+  .flow-arrow { font-size:20px; color:#94a3b8; }
+  .ai-box { background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border-radius:10px; padding:14px 18px; font-size:13px; font-weight:600; text-align:center; }
+  .kpi-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .kpi { flex:1; min-width:140px; background:#f8fafc; border-radius:8px; padding:12px; text-align:center; }
+  .kpi .n { font-size:20px; font-weight:700; }
+  .kpi .l { font-size:11px; color:#64748b; margin-top:2px; }
+  .before { border-left:4px solid #ef4444; }
+  .after { border-left:4px solid #22c55e; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; margin-bottom:12px; }
+  .legend span { display:flex; align-items:center; gap:6px; }
+  .legend i { width:14px; height:14px; border-radius:3px; display:inline-block; }
+  .note { font-size:12px; color:#64748b; background:#f8fafc; padding:10px 14px; border-radius:6px; margin-top:12px; }
+  .highlight { background:#fef9c3; padding:2px 6px; border-radius:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>방사(압출) 공장 생산계획 자동화 샘플</h1>
+  <p>가상의 3개 방사 라인 · 7일 스케줄 · AI 스케줄링 전후 비교 · 2026-11-02</p>
+</header>
+<div class="container">
+
+<div class="section">
+  <h2>1. 샘플 공장 개요 (가상의 데이터)</h2>
+  <div class="grid3">
+    <div class="card"><h3>라인 A (구형)</h3><div class="val">1,200</div><div class="sub">kg/일 · 전환시간 90분 · 2008년식</div></div>
+    <div class="card"><h3>라인 B (신형)</h3><div class="val">2,000</div><div class="sub">kg/일 · 전환시간 45분 · 2021년식</div></div>
+    <div class="card"><h3>라인 C (신형)</h3><div class="val">1,800</div><div class="sub">kg/일 · 전환시간 50분 · 2023년식</div></div>
+  </div>
+  <div class="note">총 생산능력 5,000 kg/일. 원료는 폴리프로필렌(PP) 펠릿 3종(등급 A/B/C), 색상 4종. 제품은 섬유용 모노필라멘트 8개 SKU.</div>
+</div>
+
+<div class="section">
+  <h2>2. AI 입력 데이터 (이번 주 수주 현황)</h2>
+  <table>
+    <tr><th>수주번호</th><th>제품</th><th>수량(kg)</th><th>납기</th><th>우선순위</th><th>비고</th></tr>
+    <tr><td>SO-1042</td><td>PP-MF-150 (등급A, 백색)</td><td>3,500</td><td>수 18:00</td><td><span class="tag tag-down">긴급</span></td><td>수출 선적</td></tr>
+    <tr><td>SO-1045</td><td>PP-MF-200 (등급B, 적색)</td><td>2,200</td><td>목 12:00</td><td><span class="tag tag-change">높음</span></td><td>국내 납품</td></tr>
+    <tr><td>SO-1047</td><td>PP-MF-150 (등급A, 흑색)</td><td>1,800</td><td>금 18:00</td><td><span class="tag tag-ok">보통</span></td><td>재고 보충</td></tr>
+    <tr><td>SO-1050</td><td>PP-MF-300 (등급C, 백색)</td><td>4,000</td><td>차주 수</td><td><span class="tag tag-ok">보통</span></td><td>여유 있음</td></tr>
+    <tr><td>SO-1051</td><td>PP-MF-200 (등급B, 청록)</td><td>1,500</td><td>차주 목</td><td><span class="tag tag-ok">낮음</span></td><td>신규 고객</td></tr>
+  </table>
+  <div class="note">총 수요 12,000 kg. 이번 주 능력 35,000 kg이라 용량은 충분하지만, <span class="highlight">긴급 수주 SO-1042의 납기 준수가 핵심 제약</span>입니다. 등급A→B 전환 시 스크류 클리닝 90분 소요.</div>
+</div>
+
+<div class="section">
+  <h2>3. 생산계획 자동화 워크플로우</h2>
+  <div class="flow">
+    <div class="flow-step">수주 입력<br><small>ERP/수기</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">데이터 수집<br><small>재고·설비·실적</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="ai-box">AI 스케줄러<br>CP + 유전알고리즘<br>제약 최적화</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">스케줄 확정<br><small>라인별 순서</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">작업지시 발행<br><small>MES/태블릿</small></div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">실시간 모니터링<br><small>이상 시 재계획</small></div>
+  </div>
+  <div class="note">사람이 하던 "어떤 라인을 뭘 먼저 돌릴까" 판단이 2번 박스에서 알고리즘으로 대체됩니다. 사람이 검토하고 승인만 하면 됩니다.</div>
+</div>
+
+<div class="section">
+  <h2>4. Before: 수석 반장이 수동으로 짠 스케줄 (월요일 아침 화이트보드)</h2>
+  <div class="legend">
+    <span><i class="bar-run"></i> 정상 생산</span>
+    <span><i class="bar-change"></i> 제품 전환(클리닝)</span>
+    <span><i class="bar-down"></i> 고장/대기</span>
+    <span><i class="bar-idle"></i> 유휴</span>
+  </div>
+  <div class="gantt">
+    <div class="gantt-row"><div class="gantt-label">라인 A</div><div class="gantt-track">
+      <div class="gantt-bar bar-run" style="left:0;width:18%">MF-150A 백</div>
+      <div class="gantt-bar bar-change" style="left:18%;width:6%">전환</div>
+      <div class="gantt-bar bar-run" style="left:24%;width:14%">MF-200B 적</div>
+      <div class="gantt-bar bar-change" style="left:38%;width:6%">전환</div>
+      <div class="gantt-bar bar-run" style="left:44%;width:12%">MF-150A 흑</div>
+      <div class="gantt-bar bar-idle" style="left:56%;width:44%"></div>
+    </div></div>
+    <div class="gantt-row"><div class="gantt-label">라인 B</div><div class="gantt-track">
+      <div class="gantt-bar bar-run" style="left:0;width:20%">MF-150A 백</div>
+      <div class="gantt-bar bar-change" style="left:20%;width:3%">전환</div>
+      <div class="gantt-bar bar-run" style="left:23%;width:16%">MF-300C 백</div>
+      <div class="gantt-bar bar-down" style="left:39%;width:8%">고장</div>
+      <div class="gantt-bar bar-run" style="left:47%;width:14%">MF-200B 적</div>
+      <div class="gantt-bar bar-idle" style="left:61%;width:39%"></div>
+    </div></div>
+    <div class="gantt-row"><div class="gantt-label">라인 C</div><div class="gantt-track">
+      <div class="gantt-bar bar-run" style="left:0;width:16%">MF-200B 청</div>
+      <div class="gantt-bar bar-change" style="left:16%;width:3.5%">전환</div>
+      <div class="gantt-bar bar-run" style="left:19.5%;width:15%">MF-150A 백</div>
+      <div class="gantt-bar bar-change" style="left:34.5%;width:3.5%">전환</div>
+      <div class="gantt-bar bar-run" style="left:38%;width:13%">MF-300C 백</div>
+      <div class="gantt-bar bar-idle" style="left:51%;width:49%"></div>
+    </div></div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">월 ──────── 화 ──────── 수 ──────── 목 ──────── 금 ──────── 토 ──────── 일</div>
+  </div>
+  <div class="kpi-row" style="margin-top:16px;">
+    <div class="kpi before"><div class="n">✗</div><div class="l">SO-1042 (긴급 3,500kg)<br>수요일 18시 납기 불가</div></div>
+    <div class="kpi before"><div class="n">4회</div><div class="l">제품 전환 횟수<br>(전환 손실 5.5시간)</div></div>
+    <div class="kpi before"><div class="n">38%</div><div class="l">설비 가동률<br>라인별 편차 큼</div></div>
+  </div>
+  <div class="note">문제점: 긴급 수주를 어느 라인에 넣을지 감으로 정함 → 라인 A에 몰빵했지만 전환 시간이 길어서 납기 못 맞춤. 라인 B 고장 8시간은 계획에 없었음. 사람이 짜다 보니 전환 순서 최적화가 안 됨 (A→B→A 처럼 왔다 갔다).</div>
+</div>
+
+<div class="section">
+  <h2>5. After: AI 스케줄러가 짠 스케줄 (제약 조건 반영)</h2>
+  <div class="gantt">
+    <div class="gantt-row"><div class="gantt-label">라인 A</div><div class="gantt-track">
+      <div class="gantt-bar bar-run" style="left:0;width:22%">MF-150A 백<br>2,400kg</div>
+      <div class="gantt-bar bar-change" style="left:22%;width:6%">전환</div>
+      <div class="gantt-bar bar-run" style="left:28%;width:13%">MF-150A 흑<br>1,800kg</div>
+      <div class="gantt-bar bar-idle" style="left:41%;width:59%"></div>
+    </div></div>
+    <div class="gantt-row"><div class="gantt-label">라인 B</div><div class="gantt-track">
+      <div class="gantt-bar bar-run" style="left:0;width:24%">MF-150A 백<br>3,500kg<br>★긴급</div>
+      <div class="gantt-bar bar-change" style="left:24%;width:3%">전환</div>
+      <div class="gantt-bar bar-run" style="left:27%;width:15%">MF-200B 적<br>2,200kg</div>
+      <div class="gantt-bar bar-change" style="left:42%;width:3%">전환</div>
+      <div class="gantt-bar bar-run" style="left:45%;width:10%">MF-200B 청<br>1,500kg</div>
+      <div class="gantt-bar bar-idle" style="left:55%;width:45%"></div>
+    </div></div>
+    <div class="gantt-row"><div class="gantt-label">라인 C</div><div class="gantt-track">
+      <div class="gantt-bar bar-run" style="left:0;width:28%">MF-300C 백<br>4,000kg</div>
+      <div class="gantt-bar bar-idle" style="left:28%;width:72%"></div>
+    </div></div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">월 ──────── 화 ──────── 수 ──────── 목 ──────── 금 ──────── 토 ──────── 일</div>
+  </div>
+  <div class="kpi-row" style="margin-top:16px;">
+    <div class="kpi after"><div class="n">✓</div><div class="l">SO-1042<br>월요일 중 완료, 수 18시 여유</div></div>
+    <div class="kpi after"><div class="n">3회</div><div class="l">제품 전환 횟수<br>(전환 손실 3시간)</div></div>
+    <div class="kpi after"><div class="n">61%</div><div class="l">설비 가동률<br>긴급 수주 우선 배치</div></div>
+  </div>
+  <div class="note">AI가 한 일: ① 긴급 수주 SO-1042를 전환 시간 짧은 라인 B에 최우선 배치 → 수요일 납기 2일 여유. ② 동일 등급(A) 제품을 연속 배치해서 전환 1회 절감. ③ 등급 C 대량 수주는 라인 C에 통째로 배정. ④ 라인 B 과거 고장 패턴(화요일 오후) 반영해 예방 정비 슬롯 확보. 사람이 검토해서 "라인 C를 일찍 돌려도 되겠다" 승인만 하면 끝.</div>
+</div>
+
+<div class="section">
+  <h2>6. 정량 비교 (같은 수주, 같은 설비)</h2>
+  <table>
+    <tr><th>지표</th><th>수동 계획</th><th>AI 계획</th><th>개선</th></tr>
+    <tr><td>긴급 수주 납기 준수</td><td>불가 (3,500kg 지연)</td><td>2일 여유</td><td class="tag tag-ok">치명적 개선</td></tr>
+    <tr><td>제품 전환 횟수</td><td>4회</td><td>3회</td><td class="tag tag-ok">-25%</td></tr>
+    <tr><td>전환 시간 손실</td><td>5.5시간</td><td>3.0시간</td><td class="tag tag-ok">-45%</td></tr>
+    <tr><td>설비 가동률</td><td>38%</td><td>61%</td><td class="tag tag-ok">+23%p</td></tr>
+    <tr><td>계획 수립 시간</td><td>2~3시간 (매일)</td><td>10분 (승인만)</td><td class="tag tag-ok">-90%</td></tr>
+    <tr><td>고장 대응</td><td>사후 대응</td><td>예방 정비 선반영</td><td class="tag tag-ok">다운타임 감소</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2>7. 사장님 방사 공정에 적용 시 현실적인 경로</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>1단계: 데이터 수집 (지금 가능)</h3>
+      <p style="font-size:13px;">방사 실험 DB에 쌓으신 배치 기록 — 원료 등급, 온도 존, 토출량, 권취 속도, 품질 측정값. 이게 AI 학습의 재료입니다.</p>
+    </div>
+    <div class="card">
+      <h3>2단계: 제약 조건 정의</h3>
+      <p style="font-size:13px;">전환 시간 매트릭스 (A→B 90분, B→A 60분 등), 라인별 속도, 납기 우선순위 규칙. 엑셀 하나로 시작 가능.</p>
+    </div>
+    <div class="card">
+      <h3>3단계: 최적화 엔진</h3>
+      <p style="font-size:13px;">Python PuLP(CP) 또는 Google OR-Tools로 프로토타입. n8n에서 매일 아침 자동 실행 → 결과 슬랙 전송.</p>
+    </div>
+    <div class="card">
+      <h3>4단계: 피드백 루프</h3>
+      <p style="font-size:13px;">실제 생산 결과 vs 계획 비교 → 전환 시간 실측값 업데이트 → 모델 개선. 이게 데이터가 쌓일수록 똑똑해지는 지점입니다.</p>
+    </div>
+  </div>
+  <div class="note" style="margin-top:16px;"><strong>핵심:</strong> 이 샘플의 숫자들은 가상이지만 구조는 실제와 같습니다. 사장님 공장의 실제 전환 시간, 라인 속도, 수주 패턴만 넣으면 그대로 돌아가는 뼈대입니다. 원하시면 이 샘플 데이터로 PuLP 기반 실제 스케줄링 코드를 만들어서 돌려 보여드릴 수 있어요 — "이 수주면 이렇게 배치된다"를 숫자로 증명하는 거죠.</div>
+</div>
+
+<div style="font-size:12px;color:#94a3b8;text-align:center;padding:16px 0 40px;">
+  샘플 데이터 기반 시각화 · 실제 공장 수치 아님 · 2026-11-02
+</div>
+
+</div>
+</body>
+</html>
