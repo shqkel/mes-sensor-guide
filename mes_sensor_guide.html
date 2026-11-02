@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>방사 공정 MES 센서 가이드 — 뇌다리에이아이</title>
+<style>
+  :root { --bg:#0f1419; --card:#1a2332; --accent:#3d8bfd; --text:#e6edf3; --muted:#8b949e; --green:#3fb950; --orange:#d29922; --red:#f85149; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',sans-serif; background:var(--bg); color:var(--text); line-height:1.6; padding:24px; max-width:1100px; margin:0 auto; }
+  h1 { font-size:1.8rem; margin-bottom:4px; }
+  .sub { color:var(--muted); margin-bottom:32px; font-size:0.95rem; }
+  h2 { font-size:1.25rem; margin:36px 0 14px; padding-bottom:8px; border-bottom:2px solid var(--accent); color:var(--accent); }
+  h3 { font-size:1.05rem; margin:18px 0 8px; color:#c9d1d9; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+  .card { background:var(--card); border-radius:10px; padding:16px; border:1px solid #2d3a4d; }
+  .card img { width:100%; height:160px; object-fit:contain; background:#0d1117; border-radius:6px; margin-bottom:10px; }
+  .tag { display:inline-block; font-size:0.7rem; padding:2px 8px; border-radius:12px; margin-right:4px; }
+  .tag-q { background:#1a3a2a; color:var(--green); }
+  .tag-m { background:#3a2f1a; color:var(--orange); }
+  .tag-new { background:#1a2a3a; color:var(--accent); }
+  .price { color:var(--green); font-weight:bold; font-size:0.9rem; }
+  .note { font-size:0.8rem; color:var(--muted); margin-top:6px; }
+  ul { margin:6px 0 6px 18px; font-size:0.88rem; }
+  li { margin-bottom:3px; }
+  .flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:16px 0; padding:14px; background:var(--card); border-radius:10px; }
+  .flow span { background:#0d1117; padding:6px 12px; border-radius:6px; font-size:0.85rem; border:1px solid #2d3a4d; }
+  .flow .arrow { color:var(--accent); font-weight:bold; }
+  .warn { background:#2a1f1a; border:1px solid var(--orange); border-radius:8px; padding:12px; margin:16px 0; font-size:0.88rem; color:#f0c674; }
+  table { width:100%; border-collapse:collapse; font-size:0.85rem; margin:12px 0; }
+  th, td { padding:8px 10px; text-align:left; border-bottom:1px solid #2d3a4d; }
+  th { color:var(--muted); font-weight:500; }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .footer { margin-top:48px; color:var(--muted); font-size:0.75rem; text-align:center; }
+</style>
+</head>
+<body>
+
+<h1>방사 공정 센서 &amp; 데이터 수집 가이드</h1>
+<p class="sub">뇌다리에이아이 · 중소기업 MES 구축 1~2단계용 · 2026-11</p>
+
+<div class="warn">
+  <strong>핵심 원칙:</strong> 전부 살 필요 없음. 품질에 직결되는 변수(온도·압력)부터, 설비 상태용은 나중. 오픈소스 프로토타입으로 검증 후 상용 전환.
+</div>
+
+<h2>1. 데이터 흐름 (전체 구조)</h2>
+<div class="flow">
+  <span>센서</span><span class="arrow">→</span>
+  <span>DAQ / 싱글보드</span><span class="arrow">→</span>
+  <span>MQTT 브로커<br>(VPS :1883)</span><span class="arrow">→</span>
+  <span>InfluxDB<br>(시계열 저장)</span><span class="arrow">→</span>
+  <span>Grafana<br>(대시보드)</span>
+</div>
+
+<h2>2. 방사 공정 핵심 센서 (품질 직결)</h2>
+<div class="grid">
+
+  <div class="card">
+    <img src="https://www.omega.com/en-us/sensors-and-instrumentation/temperature/thermocouples/tc-general-purpose/p/TJ36-ICSS-18G-12" alt="열전대" onerror="this.src='https://images.omega.com/instr/prodimg/TJ36-ICSS-18G-12.jpg'">
+    <span class="tag tag-q">품질</span>
+    <h3>열전대 (Thermocouple) — K형</h3>
+    <ul>
+      <li>압출기 존별 온도 (Barrel Zone 1~5)</li>
+      <li>용융 수지 온도, 방사구 온도</li>
+      <li>범위: 0~1,200°C, ±1.5°C</li>
+    </ul>
+    <p class="price">5만~15만 원/개</p>
+    <p class="note">Omega TJ36 시리즈, 또는 국내 계양전기/한영넉스 K형. 압출기 히터 블록에 구멍 뚫어 삽입.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.wika.com/en-en/pressure_measurement/pressure_transmitters/p/A-10" alt="압력 트랜스미터" onerror="this.src='https://assets.wika.com/pim/A-10.jpg'">
+    <span class="tag tag-q">품질</span>
+    <h3>압력 트랜스미터 (4~20mA)</h3>
+    <ul>
+      <li>용융 압력 (Extruder Melt Pressure)</li>
+      <li>방사구 전후 압력차</li>
+      <li>범위: 0~350 bar, 정밀 ±0.25%</li>
+    </ul>
+    <p class="price">30만~80만 원/개</p>
+    <p class="note">WIKA A-10 또는 국내 피엠피/케이앤에스. 용융 수지 직접 접촉형 필요 — 용융압 센서.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.flowtechnology.com/products/turbine-flow-meters" alt="터빈 유량계" onerror="this.src='https://www.flowtechnology.com/wp-content/uploads/turbine-flow-meter.jpg'">
+    <span class="tag tag-q">품질</span>
+    <h3>유량계 (Flow Meter)</h3>
+    <ul>
+      <li>폴리머 용융 토출량</li>
+      <li>냉각수/오일 순환 유량</li>
+      <li>용융: 기어 타입, 냉각수: 전자식</li>
+    </ul>
+    <p class="price">용융 50만~150만 / 냉각수 10만~30만</p>
+    <p class="note">용융 유량은 고점도라 기어식 용융 유량계 필수. 냉각수는 초음파식도 가능.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.hbm.com/en/7163/torque-transducers" alt="토크 센서" onerror="this.src='https://www.hbm.com/fileadmin/mediapool/hbmdotcom/teaser/torque.jpg'">
+    <span class="tag tag-q">품질</span>
+    <h3>토크/장력 센서</h3>
+    <ul>
+      <li>압출기 스크류 토크</li>
+      <li>권취(winder) 장력</li>
+      <li>토크: 0~500 Nm, 장력: 로드셀 기반</li>
+    </ul>
+    <p class="price">토크 100만~300만 / 장력 30만~80만</p>
+    <p class="note">HBM T22 토크 트랜스듀서. 장력은 Zemic/Flintec 로드셀 + 앰프.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.ifm.com/kr/en/product/TA2511" alt="적외선 온도센서" onerror="this.src='https://www.ifm.com/fileadmin/ifmdotcom/products/TA2511.jpg'">
+    <span class="tag tag-q">품질</span>
+    <h3>적외선 온도센서 (IR)</h3>
+    <ul>
+      <li>방사구 표면, 섬유 주행 온도</li>
+      <li>비접촉 — 회전/이동 물체 OK</li>
+      <li>범위: -40~600°C</li>
+    </ul>
+    <p class="price">15만~40만 원</p>
+    <p class="note">IFM TA2511 또는 국내 큐비콤. 방사 중 섬유 온도 모니터링에 최적.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.balluff.com/en/kr/products/sensors/inductive-sensors" alt="유도형 근접센서" onerror="this.src='https://www.balluff.com/resource/blob/24060/inductive-sensor.jpg'">
+    <span class="tag tag-q">품질</span>
+    <h3>인코더 / 속도 센서</h3>
+    <ul>
+      <li>권취 롤러 RPM, 라인 속도</li>
+      <li>인버터 피드백 신호 활용 가능</li>
+      <li>분해능 1024~4096 PPR</li>
+    </ul>
+    <p class="price">10만~30만 원</p>
+    <p class="note">Kubler 또는 국내 오토닉스 E40S. 인버터 속도 지령값만으로도 충분할 수 있음.</p>
+  </div>
+
+</div>
+
+<h2>3. 설비 상태 모니터링 센서</h2>
+<div class="grid">
+
+  <div class="card">
+    <img src="https://www.crmagnetics.com/current-transformers/split-core" alt="전류센서" onerror="this.src='https://www.crmagnetics.com/images/split-core-ct.jpg'">
+    <span class="tag tag-m">모니터링</span>
+    <h3>전류 센서 (CT)</h3>
+    <ul>
+      <li>모터 부하 전류 → 과부하/공회전 감지</li>
+      <li>분할형(split-core)이면 배선 끊지 않고 장착</li>
+      <li>0~100A, 4~20mA 출력</li>
+    </ul>
+    <p class="price">5만~15만 원</p>
+    <p class="note">CR Magnetics CR3110 또는 국내 대영전자. 압출기·권취 모터에 각 1개.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.ifm.com/kr/en/product/VSE150" alt="진동센서" onerror="this.src='https://www.ifm.com/fileadmin/ifmdotcom/products/VSE150.jpg'">
+    <span class="tag tag-m">모니터링</span>
+    <h3>진동 센서 (가속도계)</h3>
+    <ul>
+      <li>베어링 마모, 불평형, 기어 이상</li>
+      <li>IEPE 출력, 10~10kHz</li>
+      <li>모터·감속기 하우징에 나사 체결</li>
+    </ul>
+    <p class="price">20만~50만 원</p>
+    <p class="note">IFM VSE150 또는 PCB Piezotronics. 예방정비(PdM)의 핵심.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.vaisala.com/en/products/instruments-sensors/humidity-and-temperature-instruments" alt="온습도센서" onerror="this.src='https://www.vaisala.com/sites/default/files/styles/img_16_9/public/images/2023-01/HMW90.jpg'">
+    <span class="tag tag-m">모니터링</span>
+    <h3>온습도 센서</h3>
+    <ul>
+      <li>방사 HALL(방사실) 환경</li>
+      <li>원료 보관고 습도 관리</li>
+      <li>SHT35 칩 기반 모듈 가능</li>
+    </ul>
+    <p class="price">3만~10만 원 (모듈) / 30만+ (산업용)</p>
+    <p class="note">Sensirion SHT35 기반 I2C 모듈이면 충분. 산업용은 Vaisala HMW90.</p>
+  </div>
+
+</div>
+
+<h2>4. 추가 가능 센서 (나중 단계)</h2>
+<div class="grid">
+
+  <div class="card">
+    <img src="https://www.keyence.com/kr/products/measure/laser-1d/" alt="레이저 변위센서" onerror="this.src='https://www.keyence.com/images/laser-displacement.jpg'">
+    <span class="tag tag-new">추가</span>
+    <h3>레이저 변위 센서</h3>
+    <ul>
+      <li>섬유 직경(denier) 실시간 측정</li>
+      <li>롤러 마모량, 갭 측정</li>
+      <li>분해능 0.1μm~</li>
+    </ul>
+    <p class="price">100만~400만 원</p>
+    <p class="note">Keyence LK-G 시리즈. 섬유 품질 관리의 꽃. 3단계 이후 검토.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.cognex.com/products/machine-vision" alt="머신비전" onerror="this.src='https://www.cognex.com/images/in-sight.jpg'">
+    <span class="tag tag-new">추가</span>
+    <h3>머신비전 카메라</h3>
+    <ul>
+      <li>섬유 결함(끊김, 굵기 편차) 검출</li>
+      <li>압출 펠릿 형상 검사</li>
+      <li>산업용 GigE 카메라 + 렌즈</li>
+    </ul>
+    <p class="price">150만~500만 원 (셋)</p>
+    <p class="note">Cognex In-Sight 또는 국내 뷰런/엠비아이. AI 추론 파이프라인 필요.</p>
+  </div>
+
+  <div class="card">
+    <img src="https://www.emerson.com/en-us/automation/measurement-instrumentation/coriolis" alt="코리올리 유량계" onerror="this.src='https://www.emerson.com/images/coriolis.jpg'">
+    <span class="tag tag-new">추가</span>
+    <h3>코리올리 질량 유량계</h3>
+    <ul>
+      <li>원료(펠릿) 투입량 정밀 측정</li>
+      <li>밀도까지 동시 측정</li>
+      <li>용융 유량계보다 정밀</li>
+    </ul>
+    <p class="price">300만~800만 원</p>
+    <p class="note">Emerson Micro Motion. 원료 배합 정확도가 품질의 출발점이면 검토.</p>
+  </div>
+
+</div>
+
+<h2>5. 권장 구매 순서 (중소기업 기준)</h2>
+<table>
+  <tr><th>순위</th><th>센서</th><th>이유</th><th>예상 비용</th></tr>
+  <tr><td>1</td><td>K형 열전대 ×5~8</td><td>존별 온도 = 품질 1순위</td><td>40만~120만</td></tr>
+  <tr><td>2</td><td>용융 압력 트랜스미터 ×1~2</td><td>토출 안정성 직결</td><td>60만~160만</td></tr>
+  <tr><td>3</td><td>전류 센서(CT) ×2~4</td><td>설비 이상 조기 감지, 저렴</td><td>20만~60만</td></tr>
+  <tr><td>4</td><td>인코더/속도 ×1~2</td><td>라인 속도 = 생산성 지표</td><td>20만~60만</td></tr>
+  <tr><td>5</td><td>온습도 ×2~3</td><td>환경 변수, 원료 관리</td><td>10만~30만</td></tr>
+  <tr><td>6</td><td>진동 ×1~2</td><td>예방정비</td><td>40만~100만</td></tr>
+  <tr><td>7</td><td>유량계 (냉각수)</td><td>냉각 효율</td><td>10만~30만</td></tr>
+</table>
+<p class="note">1~4단계(열전대+압력+전류+속도)만으로도 약 150만~400만 원. 여기에 DAQ/싱글보드(20만~50만) + VPS 운영비. 1년 안에 풀 MES 라이선스(수천만 원~) 사는 것보다 효과 대비 비용이 압도적으로 낮음.</p>
+
+<h2>6. 국내 구매처</h2>
+<ul>
+  <li><strong>계양전기</strong> — 열전대, 온도 컨트롤러</li>
+  <li><strong>오토닉스 (Autonics)</strong> — 인코더, 온도, 카운터</li>
+  <li><strong>피엠피(PMP) / 케이앤에스</strong> — 압력 트랜스미터</li>
+  <li><strong>대영전자</strong> — CT 전류센서</li>
+  <li><strong>Zemic / Flintec</strong> — 로드셀 (장력)</li>
+  <li><strong>Arduino Korea / 쿠팡</strong> — 프로토타입용 저가 모듈</li>
+</ul>
+
+<div class="footer">
+  뇌다리에이아이 · 방사 실험 DB → MES 전환 프로젝트 · 센서 사양·가격은 제조사 최신 카탈로그 확인 필요<br>
+  이 문서는 구축 방향 참고용이며, 최종 사양은 현장 실사 후 확정
+</div>
+
+</body>
+</html>
